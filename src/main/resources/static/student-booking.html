@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Vehicle Rental</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        :root {
+            --bg:#0f172a;
+            --card:#1e2a4f;
+            --muted:#8892b0;
+            --radius:12px;
+            --shadow:0 20px 40px -10px rgba(15,23,42,.4);
+            --accent:#6366f1;
+            --accent-dark:#4f4fd6;
+            --radius-small:6px;
+            --transition:.25s cubic-bezier(.4,.2,.2,1);
+        }
+        *{box-sizing:border-box;}
+        body {
+            margin:0;
+            font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+            background: linear-gradient(135deg,#0f172a 0%,#1f2f6f 70%);
+            color:#f0f5ff;
+            min-height:100vh;
+            padding:1rem;
+        }
+        h1 {
+            text-align:center;
+            margin-top:0;
+            font-size:1.9rem;
+            letter-spacing:0.5px;
+        }
+        #vehicleContainer {
+            display:grid;
+            gap:1rem;
+            grid-template-columns: repeat(auto-fill,minmax(220px,1fr));
+            margin:1rem 0 2rem;
+        }
+        .vehicle-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding:16px;
+            position:relative;
+            cursor:pointer;
+            overflow:hidden;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            gap:8px;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+        }
+        .vehicle-card.unavailable {
+            filter: grayscale(60%);
+            cursor:not-allowed;
+        }
+        .vehicle-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 30px 60px -10px rgba(15,23,42,.5);
+        }
+        .vehicle-card img {
+            width:100%;
+            border-radius:8px;
+            aspect-ratio:3/2;
+            object-fit:cover;
+        }
+        .badge {
+            padding:4px 10px;
+            border-radius:999px;
+            font-size:.55rem;
+            letter-spacing:1px;
+            text-transform:uppercase;
+            display:inline-block;
+        }
+        .status-available { background:#10b981; color:#fff; }
+        .status-unavailable { background:#f43f5e; color:#fff; }
+        .status-rented { background:#f59e0b; color:#fff; }
+
+        .form-wrapper {
+            max-width:640px;
+            margin:0 auto 40px;
+            background:#1f2a4f;
+            padding:24px 28px;
+            border-radius:14px;
+            position:relative;
+            box-shadow: var(--shadow);
+        }
+        .form-section {
+            display:none;
+            margin-top:20px;
+        }
+        .selected-title {
+            margin:0 0 10px;
+            font-size:1.3rem;
+        }
+        .grid {
+            display:grid;
+            gap:12px;
+        }
+        label {
+            display:block;
+            font-weight:600;
+            margin-bottom:4px;
+        }
+        input, select {
+            width:100%;
+            padding:10px 14px;
+            border-radius:8px;
+            border:1px solid rgba(255,255,255,0.1);
+            background:rgba(255,255,255,0.04);
+            color:#f0f5ff;
+            font-size:1rem;
+        }
+        input[type=datetime-local]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+        button {
+            background: var(--accent);
+            border:none;
+            color:#fff;
+            padding:12px 20px;
+            border-radius:8px;
+            font-weight:600;
+            cursor:pointer;
+            font-size:1rem;
+            transition: var(--transition);
+        }
+        button:hover { background: var(--accent-dark); }
+        .small {
+            font-size:.85rem;
+            color: var(--muted);
+        }
+        #responseMessage {
+            margin-top:15px;
+            padding:10px 14px;
+            border-radius:8px;
+            background: rgba(255,255,255,0.07);
+            position:relative;
+        }
+        .flex { display:flex; gap:12px; }
+        .pill { background: rgba(255,255,255,0.05); padding:6px 12px; border-radius:999px; font-size:.7rem;}
+    </style>
+</head>
+<body>
+
+<h1>Rent a Scooter / Velo</h1>
+
+<!-- Vehicle selection -->
+<div id="vehicleContainer"></div>
+
+<!-- Rental form -->
+<div class="form-wrapper">
+    <div class="form-section" id="rentalForm">
+        <div class="selected-title">Booking for <strong><span id="selectedVehicleName"></span></strong></div>
+        <input type="hidden" id="selectedVehicleId" />
+
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:16px;">
+            <div>
+                <label for="inemail">Academic Email</label>
+                <input type="text" id="inemail" placeholder="lastname.firstname@ine.inpt.ac.ma" />
+                <div class="small">Used to identify your student account</div>
+            </div>
+            <div>
+                <label for="fullName">Full Name</label>
+                <input type="text" id="fullName" placeholder="John Doe" />
+                <div class="small">Will be stored if new student</div>
+            </div>
+        </div>
+
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">
+            <div>
+                <label for="startTime">Start Time</label>
+                <input type="datetime-local" id="startTime" step="1800" />
+                <div class="small">Only :00 or :30, up to 7 days ahead</div>
+            </div>
+            <div>
+                <label for="endTime">End Time</label>
+                <input type="datetime-local" id="endTime" step="1800" />
+                <div class="small">Must be after start (min 30 minutes)</div>
+            </div>
+        </div>
+
+        <div style="margin-top:18px;">
+            <button onclick="bookRental()">Confirm Rental</button>
+        </div>
+        <div id="responseMessage"></div>
+    </div>
+</div>
+
+<script>
+    // images by type (replace with real URLs later)
+    const vehicleImages = {
+        "Scooter": "https://via.placeholder.com/300x200/6366f1/ffffff?text=Scooter",
+        "Velo": "https://via.placeholder.com/300x200/10b981/ffffff?text=Velo"
+    };
+
+    let vehicles = [];
+
+    // helper: round up to next 30min slot
+    function roundUpTo30(dt) {
+        const m = dt.getMinutes();
+        const remainder = m % 30;
+        if (remainder !== 0) {
+            dt.setMinutes(m + (30 - remainder));
+        }
+        dt.setSeconds(0);
+        dt.setMilliseconds(0);
+        return dt;
+    }
+
+    function pad(n){ return n<10? '0'+n : ''+n; }
+
+    // format to YYYY-MM-DDThh:mm (local) for datetime-local value
+    function toLocalInputString(d) {
+        const year = d.getFullYear();
+        const month = pad(d.getMonth()+1);
+        const day = pad(d.getDate());
+        const hours = pad(d.getHours());
+        const minutes = pad(d.getMinutes());
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    // initialize allowed min/max on load
+    function setTimeConstraints() {
+        const now = new Date();
+        const earliest = roundUpTo30(new Date(now)); // next slot
+        const max = new Date(now);
+        max.setDate(max.getDate() + 7);
+
+        document.getElementById('startTime').min = toLocalInputString(earliest);
+        document.getElementById('startTime').max = toLocalInputString(max);
+
+        // endTime: allow from earliest+30m up to 7 days + maybe keep same cap at 7 days + 23:30
+        const minEnd = new Date(earliest);
+        minEnd.setMinutes(minEnd.getMinutes() + 30);
+        document.getElementById('endTime').min = toLocalInputString(minEnd);
+        document.getElementById('endTime').max = toLocalInputString(max);
+    }
+
+    // load vehicles
+    function loadVehicles() {
+        fetch('/vehicles')
+            .then(r => r.json())
+            .then(list => {
+                vehicles = list;
+                renderVehicleCards();
+            })
+            .catch(e => {
+                console.error('Failed to fetch vehicles', e);
+            });
+    }
+
+    function renderVehicleCards() {
+        const container = document.getElementById('vehicleContainer');
+        container.innerHTML = '';
+        vehicles.forEach(vehicle => {
+            const card = document.createElement('div');
+            card.className = 'vehicle-card' + (vehicle.status === 'Unavailable' ? ' unavailable' : '');
+            card.innerHTML = `
+                    <div style="width:100%; position:relative;">
+                        <img src="${vehicleImages[vehicle.type] || vehicleImages['Velo']}" alt="${vehicle.type}" />
+                        <div style="position:absolute; top:10px; right:10px;">
+                            <div class="badge ${vehicle.status === 'Available'? 'status-available' : vehicle.status==='Unavailable'? 'status-unavailable' : 'status-rented'}">
+                                ${vehicle.status}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="width:100%; text-align:center;">
+                        <div style="font-weight:700; font-size:1.1rem;">${vehicle.name}</div>
+                        <div class="small">${vehicle.type}</div>
+                    </div>
+                `;
+            if (vehicle.status !== 'Unavailable') {
+                card.onclick = () => selectVehicle(vehicle.id, vehicle.name);
+            }
+            container.appendChild(card);
+        });
+    }
+
+    function selectVehicle(id, name) {
+        document.getElementById('selectedVehicleId').value = id;
+        document.getElementById('selectedVehicleName').innerText = name;
+        document.getElementById('rentalForm').style.display = 'block';
+        document.getElementById('responseMessage').innerText = '';
+        setTimeConstraints();
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function showMessage(msg, isError = false) {
+        const el = document.getElementById('responseMessage');
+        el.innerText = msg;
+        el.style.color = isError ? '#f87171' : '#a5f3fc';
+    }
+
+    function bookRental() {
+        const inemail = document.getElementById('inemail').value.trim();
+        const fullName = document.getElementById('fullName').value.trim();
+        const vehicleId = document.getElementById('selectedVehicleId').value;
+        const rentalStartTime = document.getElementById('startTime').value;
+        const rentalEndTime = document.getElementById('endTime').value;
+
+        if (!inemail || !fullName || !vehicleId || !rentalStartTime || !rentalEndTime) {
+            showMessage('Please fill all fields.', true);
+            return;
+        }
+
+        // basic inemail pattern check
+        if (!/^[a-z]+\.[a-z]+@ine\.inpt\.ac\.ma$/i.test(inemail)) {
+            showMessage('Academic email format invalid.', true);
+            return;
+        }
+
+        // parse and validate times
+        const start = new Date(rentalStartTime);
+        const end = new Date(rentalEndTime);
+        const now = new Date();
+
+        // enforce increments (should be automatic due to step, but double-check)
+        if (start.getMinutes() % 30 !== 0 || end.getMinutes() % 30 !== 0) {
+            showMessage('Times must be at :00 or :30.', true);
+            return;
+        }
+
+        if (start < now) {
+            showMessage('Start time cannot be in the past.', true);
+            return;
+        }
+
+        const sevenDaysLater = new Date(now);
+        sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+        if (start > sevenDaysLater) {
+            showMessage('Start must be within the next 7 days.', true);
+            return;
+        }
+
+        if (end <= start) {
+            showMessage('End time must be after start.', true);
+            return;
+        }
+
+        const diffMinutes = (end - start) / 60000;
+        if (diffMinutes < 30) {
+            showMessage('Minimum rental is 30 minutes.', true);
+            return;
+        }
+
+        const payload = {
+            student: { id: null }, // backend should be adapted for inemail/fullName flow later
+            vehicle: { id: Number(vehicleId) },
+            rentalStartTime: rentalStartTime,
+            rentalEndTime: rentalEndTime,
+            // you can later replace student object with inemail-based DTO
+        };
+
+        // For now send fullName + inemail as query params or custom header if backend not yet adapted.
+        // Easiest: temporarily include in student.fullName and student.email for mapping:
+        payload.student = {
+            fullName: fullName,
+            email: inemail // repurpose for now until you switch to inemail login
+        };
+
+        fetch('/rentals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(r => r.text())
+            .then(msg => showMessage(msg, msg.toLowerCase().includes('error') || msg.toLowerCase().includes('already') || msg.toLowerCase().includes('unavailable')))
+            .catch(e => showMessage('Network error', true));
+    }
+
+    // initialize
+    loadVehicles();
+</script>
+</body>
+</html>

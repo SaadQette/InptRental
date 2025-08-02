@@ -1,0 +1,21 @@
+# Maven
+/target/
+
+# IDE
+/.idea/
+/*.iml
+
+# Logs
+*.log
+
+# H2 database file (if you don't want to version the DB)
+/data/
+*.db
+*.mv.db
+
+# Credentials overrides
+/application-local.properties
+
+# OS
+.DS_Store
+Thumbs.db
